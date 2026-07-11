@@ -1,0 +1,41 @@
+name: Build stm32flash for Windows
+
+on:
+  workflow_dispatch:  # Запуск вручную
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Checkout stm32flash
+        uses: actions/checkout@v4
+        with:
+          repository: stm32duino/stm32flash
+          path: stm32flash-src
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: mingw-w64-ucrt-x86_64-gcc make
+
+      - name: Build static binary
+        run: |
+          cd stm32flash-src
+          make CC=x86_64-w64-mingw32-gcc LDFLAGS="-static -s"
+
+      - name: Verify dependencies
+        run: |
+          cd stm32flash-src
+          ldd stm32flash.exe || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stm32flash-windows-x64
+          path: stm32flash-src/stm32flash.exe
+          retention-days: 90
