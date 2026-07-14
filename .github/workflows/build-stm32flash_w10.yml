@@ -1,0 +1,61 @@
+name: Build stm32flash for Windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Версия релиза (например, v0.7)'
+        required: true
+        default: 'v0.7'
+        type: string
+      upstream_tag:
+        description: 'Тег upstream stm32duino/stm32flash (по умолчанию последний)'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Windows x64 binary
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Checkout stm32flash
+        uses: actions/checkout@v4
+        with:
+          repository: stm32duino/stm32flash
+          ref: ${{ github.event.inputs.upstream_tag || 'HEAD' }}
+          path: stm32flash-src
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: mingw-w64-ucrt-x86_64-gcc make
+
+      - name: Build static binary
+        run: |
+          cd stm32flash-src
+          make CC=x86_64-w64-mingw32-gcc LDFLAGS="-static -s"
+
+      - name: Verify binary
+        run: |
+          cd stm32flash-src
+          file stm32flash.exe
+          ldd stm32flash.exe || true
+          ./stm32flash.exe -h
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stm32flash-windows-x64
+          path: stm32flash-src/stm32flash.exe
+          retention-days: 90
+          if-no-files-found: error
